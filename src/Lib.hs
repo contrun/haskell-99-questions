@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+
 module Lib
     (
     allQuestions,
@@ -185,65 +187,112 @@ question08 :: IO ()
 question08 = do
   failIf (helper08 "aaaabccaadeeee" /= "abcade") ""
 
---helper09 ::
+helper09 :: Eq a => [a] -> [[a]]
+helper09 [] = []
+helper09 (h:t) = realHelper09 [] [h] t
+  where realHelper09 :: Eq a => [[a]] -> [a] -> [a] -> [[a]]
+        realHelper09 acc h t = case t of {
+          [] -> acc ++ [h];
+          (h1: t1) -> if h1 `elem`  h then (realHelper09 acc (h++[h1]) t1) else (realHelper09 (acc++[h]) [h1] t1);
+          }
 
 question09 :: IO ()
-question09 = undefined
+question09 = do
+  failIf (helper09 "aaaabccaadeeee" /= ["aaaa", "b", "cc", "aa", "d", "eeee"]) ""
 
---helper10 ::
+
+helper10 :: Eq a => [a] -> [(Int, a)]
+helper10 = map (\x -> (length x, head x)) . helper09
 
 question10 :: IO ()
-question10 = undefined
+question10 = do
+  failIf (helper10 "aaaabccaadeeee"  /= [(4, 'a'), (1, 'b'), (2, 'c'), (2, 'a'), (1, 'd'), (4, 'e')]) ""
 
---helper11 ::
+data MyIntA a = Multiple Int a | Single a deriving Eq
+helper11 :: Eq a => [a] -> [MyIntA a]
+helper11 = map (\x -> if length x == 1 then Single (head x) else Multiple (length x) (head x)) . helper09
 
 question11 :: IO ()
-question11 = undefined
+question11 = do
+  failIf (helper11 "aaaabccaadeeee"  /= [(Multiple 4 'a'), (Single 'b'), (Multiple 2 'c'), (Multiple 2 'a'), (Single 'd'), (Multiple 4 'e')]) ""
 
---helper12 ::
+helper12 :: [MyIntA a] -> [a]
+helper12 = concat . map (\x -> case x of {
+  Multiple n y -> replicate n y;
+  Single y -> [y];
+})
 
 question12 :: IO ()
-question12 = undefined
+question12 = do
+  failIf ("aaaabccaadeeee"  /= helper12 [(Multiple 4 'a'), (Single 'b'), (Multiple 2 'c'), (Multiple 2 'a'), (Single 'd'), (Multiple 4 'e')]) ""
 
---helper13 ::
+-- didn't see the difference
+helper13 :: Eq a => [a] -> [MyIntA a]
+helper13 = helper11
 
 question13 :: IO ()
-question13 = undefined
+question13 = question11
 
---helper14 ::
+helper14 :: [a] -> [a]
+helper14 = concat . map (\x -> [x, x])
 
 question14 :: IO ()
-question14 = undefined
+question14 = do
+  failIf (helper14 [1, 2, 3] /= [1, 1, 2, 2, 3, 3]) ""
 
---helper15 ::
+helper15 :: [a] -> Int -> [a]
+helper15 l n = concat $ map (f n) l
+  where
+    f 0 x = []
+    f n x = (x: f (n-1) x)
 
 question15 :: IO ()
-question15 = undefined
+question15 = do
+  failIf (helper15 [1, 2, 3] 2 /= [1, 1, 2, 2, 3, 3]) ""
 
---helper16 ::
+helper16 :: [a] -> Int -> [a]
+helper16 l n = map snd $ filter (\x -> (fst x) `mod` n /= 0) $ zip [1..] l
 
 question16 :: IO ()
-question16 = undefined
+question16 = do
+  failIf (helper16 "abcdefg" 3 /=  "abdeg") ""
 
---helper17 ::
+helper17 :: [a] -> Int -> ([a], [a])
+helper17 as n = foldl go ([], []) $ zip [n, (n-1)..] as
+  where
+    go (x, y) (i, v)
+      | i <= 0 = (x, y++[v])
+      | otherwise = (x++[v], y)
 
 question17 :: IO ()
-question17 = undefined
+question17 = do
+  failIf ((helper17 "abcdefg" 3) /= ("abc", "defg")) ""
 
---helper18 ::
+helper18 :: [a] -> Int -> Int -> [a]
+helper18 as m n = map snd $ filter (\(x, _) -> x >= m && x <= n) $ zip [1..] as
 
 question18 :: IO ()
-question18 = undefined
+question18 = do
+  failIf ((helper18 "abcdefg" 3 5) /= ("cde")) ""
 
---helper19 ::
+helper19 :: [a] -> Int -> [a]
+helper19 as n = uncurry (flip (++)) $ foldl go ([], []) $ zip [n `rem` (length as), ((n `rem` length as)-1)..] as
+                                             where
+                                               go (x, y) (i, v)
+                                                 | i <= 0 = (x, y++[v])
+                                                 | otherwise = (x++[v], y)
 
 question19 :: IO ()
-question19 = undefined
+question19 = do
+  failIf ((helper19 "abcdefg" 12) /= "fgabcde") ""
 
---helper20 ::
+
+helper20 :: [a] -> Int -> [a]
+helper20 as n = map snd $ filter (\(i, _) -> i /= n) $ zip [1..] as
 
 question20 :: IO ()
-question20 = undefined
+question20 = do
+  failIf ("abcdefg" /= helper20 "abcdhefg" 5) ""
 
 --helper21 ::
 

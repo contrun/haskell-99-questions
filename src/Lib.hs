@@ -3,109 +3,21 @@
 module Lib
     (
     allQuestions,
-    question01,
-    question02,
-    question03,
-    question04,
-    question05,
-    question06,
-    question07,
-    question08,
-    question09,
-    question10,
-    question11,
-    question12,
-    question13,
-    question14,
-    question15,
-    question16,
-    question17,
-    question18,
-    question19,
-    question20,
-    question21,
-    question22,
-    question23,
-    question24,
-    question25,
-    question26,
-    question27,
-    question28,
-    question29,
-    question30,
-    question31,
-    question32,
-    question33,
-    question34,
-    question35,
-    question36,
-    question37,
-    question38,
-    question39,
-    question40,
-    question41,
-    question42,
-    question43,
-    question44,
-    question45,
-    question46,
-    question47,
-    question48,
-    question49,
-    question50,
-    question51,
-    question52,
-    question53,
-    question54,
-    question55,
-    question56,
-    question57,
-    question58,
-    question59,
-    question60,
-    question61,
-    question62,
-    question63,
-    question64,
-    question65,
-    question66,
-    question67,
-    question68,
-    question69,
-    question70,
-    question71,
-    question72,
-    question73,
-    question74,
-    question75,
-    question76,
-    question77,
-    question78,
-    question79,
-    question80,
-    question81,
-    question82,
-    question83,
-    question84,
-    question85,
-    question86,
-    question87,
-    question88,
-    question89,
-    question90,
-    question91,
-    question92,
-    question93,
-    question94,
-    question95,
-    question96,
-    question97,
-    question98,
-    question99,
     ) where
+
+import Data.Sort (sort, sortBy)
+import Data.List (group)
+import Data.Ord (compare)
+import System.Random (newStdGen, randomIO, randomR)
+import Control.Monad
+import Control.Monad.Loops (whileM)
+import qualified Data.HashMap.Lazy as M
 
 failIf :: Bool -> String -> IO ()
 failIf b s = if b then fail s else return ()
+
+failIfM :: IO Bool -> String -> IO()
+failIfM b s =  b >>= flip failIf s
 
 allQuestions = [question01, question02, question03, question04, question05, question06, question07, question08, question09, question10, question11, question12, question13, question14, question15, question16, question17, question18, question19, question20, question21, question22, question23, question24, question25, question26, question27, question28, question29, question30, question31, question32, question33, question34, question35, question36, question37, question38, question39, question40, question41, question42, question43, question44, question45, question46, question47, question48, question49, question50, question51, question52, question53, question54, question55, question56, question57, question58, question59, question60, question61, question62, question63, question64, question65, question66, question67, question68, question69, question70, question71, question72, question73, question74, question75, question76, question77, question78, question79, question80, question81, question82, question83, question84, question85, question86, question87, question88, question89, question90, question91, question92, question93, question94, question95, question96, question97, question98, question99]
 
@@ -294,45 +206,82 @@ question20 :: IO ()
 question20 = do
   failIf ("abcdefg" /= helper20 "abcdhefg" 5) ""
 
---helper21 ::
+helper21 :: [a] -> Int -> a -> [a]
+helper21 as n x = foldl go [] $ zip [1..] as
+  where go l (c, v)
+          | c == n = l++[x, v]
+          | otherwise = l ++ [v]
 
 question21 :: IO ()
-question21 = undefined
+question21 = do
+  failIf ("abcde" /=  helper21 "abde" 3 'c') ""
 
---helper22 ::
+helper22 :: Int -> Int -> [Int]
+helper22 m n
+  | m == n = [m]
+  | m < n = (m: helper22 (m+1) n)
+  | m > n = (m: helper22 (m-1) n)
 
 question22 :: IO ()
-question22 = undefined
+question22 = do
+  failIf (helper22 1 2 /=  [1, 2]) ""
+  failIf (helper22 2 1 /=  [2, 1]) ""
+  failIf (helper22 2 2 /=  [2]) ""
 
---helper23 ::
+helper23 :: [a] -> Int -> IO [a]
+helper23 as n = let newRand = randomIO :: IO Int in
+  replicateM n $ newRand >>= \x -> return $ as !! (mod x $ length as)
 
 question23 :: IO ()
-question23 = undefined
+question23 = do
+  let l = [1, 23, 435, 345, 6, 456, 234]
+  helper23 l 5 >>= \x -> failIf (not $ or [y `elem` l | y <- x]) ""
 
---helper24 ::
+helper24 :: Int -> Int -> IO [Int]
+helper24 m n = newStdGen >>= \x -> return (go x [])
+  where
+    go g acc
+      | (length acc) == n = acc
+      | otherwise = let (a, g') = randomR (1, m) g in if a `elem` acc then go g' acc else go g' (a:acc)
 
 question24 :: IO ()
-question24 = undefined
+question24 = do
+  helper24 10 5 >>= print
 
---helper25 ::
+helper25 :: [a] -> IO [a]
+helper25 as = (\ls -> map (\x -> as !! (x-1)) ls) <$> (helper24 (length as) (length as))
 
 question25 :: IO ()
-question25 = undefined
+question25 = do
+  let l = [1, 2, 3, 4, 5]
+  helper25 l >>= \x -> failIf (sort l /= sort x) ""
 
---helper26 ::
+helper26 :: [a] -> [(a, a, a)]
+helper26 as = [(x, y, z) | (i, x) <- zip [1..] as, (j, y) <- zip [1..] as, (k, z) <- zip [1..] as, i < j && j < k]
 
 question26 :: IO ()
-question26 = undefined
+question26 = do
+  failIf (sort (helper26 [1, 2, 3, 4]) /= sort [(1,2,3), (1,2,4), (1,3,4), (2,3,4)]) ""
 
---helper27 ::
+helper27 :: Int -> Int -> Int -> Int
+helper27 a b c = product [1..(a+b+c)] `div` (product [1..a]) `div` (product [1..b]) `div` (product [1..c])
 
 question27 :: IO ()
-question27 = undefined
+question27 = do
+  failIf (helper27 2 3 4 /= 1260) ""
 
---helper28 ::
+helper28A :: [[a]] -> [[a]]
+helper28A as = sortBy (\l1 l2 -> compare (length l1) (length l2)) as
+
+helper28B :: [[a]] -> [[a]]
+helper28B as = let m = M.fromList $ map (\x -> (head x, length x)) $ group $ sort [(length x) | x <- as] in
+   sortBy (\l1 l2 -> compare (m M.! (length l1)) (m M.! (length l2))) as
 
 question28 :: IO ()
-question28 = undefined
+question28 = do
+  failIf ((helper28A ["sdf", "s", "sx"]) /= ["s", "sx", "sdf"]) ""
+  let l = [[1], [1, 2], [1,3], [1, 2, 3], [3]]
+  failIf ((helper28B l) /= [[1,2,3],[1],[1,2],[1,3],[3]]) ""
 
 --helper29 ::
 

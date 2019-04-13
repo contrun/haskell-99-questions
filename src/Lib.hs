@@ -8,7 +8,7 @@ module Lib
 import Debug.Trace (trace)
 import Data.Sort (sort, sortBy)
 import Data.List (group, nub)
-import Data.Ord (compare)
+import Data.Ord (compare, comparing)
 import System.Random (newStdGen, randomIO, randomR)
 import Control.Monad
 import Control.Monad.Loops (whileM)
@@ -530,10 +530,35 @@ question44 = undefined
 question45 :: IO ()
 question45 = undefined
 
---helper46 ::
+not' :: Bool -> Bool
+not' True = False
+not' False = True
+
+and', or', nand', nor', xor', impl', equ' :: Bool -> Bool -> Bool
+and' True True = True
+and' _ _ = False
+
+or' False False = False
+or' _ _ = True
+
+nand' a b = not' $ and' a b
+
+nor' a b = not' $ or' a b
+
+xor' x y = x /= y
+
+impl' True False = False
+impl' _ _ = True
+
+equ' x y = and' (impl' x y) (impl' y x)
 
 question46 :: IO ()
-question46 = undefined
+question46 = do
+  let allOperations = [and', or', nand', nor', xor', impl', equ']
+  let allNames = ["and'", "or'", "nand'", "nor'", "xor'", "impl'", "equ'"]
+  let allValues = [True, False]
+  mapM_ print [[x, not' x] | x <- allValues]
+  mapM_ print [(n, [x, y, o x y]) | x<- allValues, y <- allValues, (o, n) <- zip allOperations allNames]
 
 --helper47 ::
 
@@ -545,15 +570,38 @@ question47 = undefined
 question48 :: IO ()
 question48 = undefined
 
---helper49 ::
+helper49 :: Int -> [String]
+helper49 n = go n (["0", "1"]) where
+  go 1 acc = acc
+  go n acc = go (n-1) $ (map ("0" ++) acc) ++ (reverse $ map ("1" ++) acc)
 
 question49 :: IO ()
-question49 = undefined
+question49 = do
+  print $ helper49 4
 
---helper50 ::
+data Tree a = Leaf a | Node a (Tree a) (Tree a)
+
+tName :: Monoid a => Tree a -> a
+tName (Leaf x) = x
+tName (Node x t1 t2) = mappend (tName t1) (tName t2)
+
+constructHuffmanTree :: [(String, Int)] -> Tree String
+constructHuffmanTree ol = let l = sortBy (comparing snd) ol
+                              ts = [(w, Leaf s) | (s, w) <- l] in f ts where
+  f [(w, t)] = t
+  f ((w1, t1):(w2, t2):rs) = f $ sortBy (comparing fst) ((w1+w2, Node (mappend (tName t1) (tName t2)) t1 t2):rs)
+
+helper50 :: [(String, Int)] -> [(String, String)]
+helper50 as = go [("", constructHuffmanTree as)] where
+  go :: [(String, Tree String)] -> [(String, String)]
+  go [(s, Leaf a)] = [(a, s)]
+  go [(s, Node _ t1 t2)] = concat [go [(s++"0", t1)], go [(s++"1", t2)]]
+  go l = concat $ map (\x -> go [x]) l
+
 
 question50 :: IO ()
-question50 = undefined
+question50 = do
+  print $ helper50 [("a", 2), ("b", 7), ("c", 6), ("d", 10), ("e", 10), ("f", 11)]
 
 --helper51 ::
 

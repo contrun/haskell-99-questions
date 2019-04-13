@@ -5,16 +5,24 @@ module Lib
     allQuestions,
     ) where
 
+import Debug.Trace (trace)
 import Data.Sort (sort, sortBy)
-import Data.List (group)
+import Data.List (group, nub)
 import Data.Ord (compare)
 import System.Random (newStdGen, randomIO, randomR)
 import Control.Monad
 import Control.Monad.Loops (whileM)
-import qualified Data.HashMap.Lazy as M
+import qualified Data.Map as M
+import qualified Data.HashMap.Lazy as HML
 
 failIf :: Bool -> String -> IO ()
 failIf b s = if b then fail s else return ()
+
+must :: Bool -> IO()
+must b = if b then return () else fail ""
+
+mustNot :: Bool -> IO ()
+mustNot = must . not
 
 failIfM :: IO Bool -> String -> IO()
 failIfM b s =  b >>= flip failIf s
@@ -293,60 +301,214 @@ question29 = undefined
 question30 :: IO ()
 question30 = undefined
 
---helper31 ::
+myGcd :: Int -> Int -> Int
+myGcd 0 n = n
+myGcd x y
+  | x <= y = myGcd (y `mod` x) x
+  | otherwise = myGcd y x
+
+coprime :: Int -> Int -> Bool
+coprime x y = myGcd x y == 1
+
+modNPower :: Int -> Int -> Int -> Int
+modNPower n x 0 = 1
+modNPower n x y
+  | even y = let r = (modNPower n x $ y `div` 2) `mod` n in r * r `mod` n
+  | otherwise = (x `mod` n) * (modNPower n x (y - 1))
+
+modNOrd :: Int -> Int -> Int
+modNOrd n x = go 1 x where
+  go o 1 = o
+  go m acc = go (m+1) $ (acc * x) `mod` n
+
+binarySearch :: Int -> Int -> (Int -> Ordering) -> Int
+binarySearch mi ma predicate
+  | mi >= ma = mi
+  | otherwise = let mid = (mi + ma) `div` 2 in case predicate mid of
+    LT -> binarySearch (mid + 1) ma predicate
+    GT -> binarySearch mi (mid - 1) predicate
+    EQ -> mid
+
+cfBinarySearch :: Bool -> Int -> Int -> (Int -> Ordering) -> Int
+cfBinarySearch b mi ma p = let x = binarySearch mi ma p
+                               o = p x in
+  -- trace ("x and o is " ++ show (x, o)) $ case o of
+  case o of
+    GT -> if b then x else (x-1)
+    LT -> if b then (x+1) else x
+    EQ -> x
+
+ceilingLog2 :: Int -> Int
+ceilingLog2 n = cfBinarySearch True 1 63 (\x -> compare (2 ^ x) n)
+
+floorLog2 :: Int -> Int
+floorLog2 n = cfBinarySearch False 1 63 (\x -> compare (2 ^ x) n)
+
+floorSqrt :: Int -> Int
+floorSqrt n = cfBinarySearch False 1 n (\x -> compare (x * x) n)
+
+primeFactorsUpto :: Int -> Int -> [Int]
+primeFactorsUpto n m = go n m 2 [] where
+  go n m x acc
+    | x > m = acc
+    | n `mod` x == 0 = go (n `div` x) m x (x:acc)
+    | otherwise = go n m (x+1) acc
+
+primeFactors :: Int -> [Int]
+primeFactors n = primeFactorsUpto n n
+
+eulerTotient :: Int -> Int
+eulerTotient n = product $ map (\x -> (head x - 1) * (head x) ^ (length x - 1)) $ group $ primeFactors n
+
+uniq :: Eq a => [a] -> [a]
+uniq = reverse . nub . reverse
+
+isPerfectPower :: Int -> Bool
+isPerfectPower n = or $ map f $ uniq $ primeFactorsUpto n $ ceilingLog2 n where
+  f x = g 2 (x * x) x where
+    g m acc x
+      | acc > n = False
+      | acc == n = True
+      | otherwise = g (m+1) (acc*x) x
+
+findSmallestR :: Int -> Int
+findSmallestR n = go 2 n $ (ceilingLog2 n) ^ 2 where
+  go r n x
+    | not (coprime r n) = go (r+1) n x
+    | modNOrd r n > x = r
+    | otherwise = go (r+1) n x
+
+toModNRFromTupleList :: Int -> Int -> [(Int, Int)] -> [Int]
+toModNRFromTupleList n r tl = map snd $ M.toAscList $ M.fromListWith (+) [(i `mod` r, x `mod` n) | (i, x) <- tl]
+
+toModNR :: Int -> Int -> [Int] -> [Int]
+toModNR n r l = toModNRFromTupleList n r $ zip [0..] l
+
+-- calculate (x + a)^n mod (x^r-1, n)
+modNRPower :: Int -> Int -> Int -> [Int]
+modNRPower n r a = let xplusa = toModNR n r [a, 1] in
+  go xplusa n where
+    go xplusa 1 = xplusa
+    go xplusa m
+      | even m = let rt = go xplusa $ m `div` 2 in modNRMultiply n r rt rt
+      | otherwise = modNRMultiply n r xplusa $ go xplusa (m-1)
+
+modNRMultiply :: Int -> Int -> [Int] -> [Int] -> [Int]
+modNRMultiply n r l1 l2 = toModNRFromTupleList n r $ [(i+j, x*y) | (i, x) <- zip [0..] l1, (j, y) <- zip [0..] l2]
+
+-- check (x + a)^n = (x^n + a) mod (x^r-1, n)
+checkModEquality :: Int -> Int -> Int -> Bool
+checkModEquality n r a = modNRPower n r a == toModNRFromTupleList n r [(n, 1), (0, a)]
+
+-- aks primality test
+aks :: Int -> Bool
+aks n
+  | isPerfectPower n = False
+  | otherwise = let
+      r = findSmallestR n
+      c = or $ map (\x -> n `mod` x == 0) [2..(min r (n-1))] in
+    -- if trace ("r and c is " ++ show (r, c)) c
+    if c
+      then False
+      else if n <= r
+        then True
+      else let upbound = floorLog2 n * (floorSqrt $ eulerTotient r) in
+        or $ map (\x -> not $ checkModEquality n r x) [1..upbound]
+
+isPrime :: Int -> Bool
+isPrime 2 = True
+isPrime n = and $ map (\x -> n `mod` x /= 0) [2..(floorSqrt n)]
+
+helper31 :: Int -> Bool
+helper31 = aks
 
 question31 :: IO ()
-question31 = undefined
+question31 = do
+  failIf (not $ and $ map isPrime [2, 3, 5, 7]) ""
+  failIf (or $ map isPrime [25, 38, 51, 81]) ""
+  failIf (not $ and $ map helper31 [2, 3, 5, 7]) ""
+  failIf (or $ map helper31 [25, 38, 51, 81]) ""
+  l <- helper23 [10000..899739498574] 1000
+  failIf (and $ map (\x -> isPrime x == helper31 x) l) ""
 
---helper32 ::
+helper32 = myGcd
 
 question32 :: IO ()
-question32 = undefined
+question32 = do
+  mustNot ([1, 3] /= map (uncurry helper32) [(3, 7), (39, 18)])
 
---helper33 ::
+helper33 = coprime
 
 question33 :: IO ()
-question33 = undefined
+question33 = do
+  mustNot ([True, False] /= map (uncurry helper33) [(3, 7), (39, 18)])
 
---helper34 ::
+helper34 :: Int -> Int
+helper34 n = length $ filter (coprime n) [1..n]
 
 question34 :: IO ()
-question34 = undefined
+question34 = do
+  print $ map helper34 [2, 3, 4, 5]
 
---helper35 ::
+helper35 = primeFactors
 
 question35 :: IO ()
-question35 = undefined
+question35 = do
+  mustNot (reverse [2, 3, 3, 5] /= primeFactors 90)
 
---helper36 ::
+helper36 :: Int -> [(Int, Int)]
+helper36 = reverse . map (\x -> (head x, length x)) . group . primeFactors
 
 question36 :: IO ()
-question36 = undefined
+question36 = do
+  print $ helper36 188
+  mustNot ([(2, 2), (47, 1)] /= helper36 188)
 
---helper37 ::
+helper37 = eulerTotient
 
 question37 :: IO ()
-question37 = undefined
+question37 = do
+  must (and $ map (\x -> helper37 x == helper34 x) [1, 439835, 3445, 345] )
 
 --helper38 ::
 
 question38 :: IO ()
-question38 = undefined
+question38 = question37
 
---helper39 ::
+sievePrimesUpto :: Int -> [Int]
+sievePrimesUpto n = go [2..n] [] where
+  go :: [Int] -> [Int] -> [Int]
+  go [] primes = primes
+  go candidates primes = let x = head candidates in go ([m | m <- candidates, m `rem` x /= 0])  (primes ++ [m | m <- candidates, m <= x])
+
+helper39 :: Int -> Int -> [Int]
+helper39 x y = [m | m <- sievePrimesUpto y, m >= x]
 
 question39 :: IO ()
-question39 = undefined
+question39 = do
+  must ([2, 3, 5, 7, 11, 13] == helper39 2 13)
 
---helper40 ::
+twoNumbersSumTo :: [Int] -> Int -> (Int, Int)
+twoNumbersSumTo ns x = let ms = sort ns in go 0 ((length ms) - 1) ms where
+      go a b l
+        | l !! a + l !! b == x = (l !! a, l !! b)
+        | l !! a + l !! b < x = go (a+1) b l
+        | l !! a + l !! b > x = go a (b-1) l
+
+
+helper40 :: Int -> (Int, Int)
+helper40 x = twoNumbersSumTo (sievePrimesUpto x) x
 
 question40 :: IO ()
-question40 = undefined
+question40 = do
+  print (map helper40 [4, 28, 126])
 
---helper41 ::
+helper41 :: Int -> Int -> [(Int, (Int, Int))]
+helper41 a b = map (\x -> (x, helper40 x)) [x | x <- [a..b], even x]
 
 question41 :: IO ()
-question41 = undefined
+question41 = do
+  print $ helper41 18 19999
 
 --helper42 ::
 
